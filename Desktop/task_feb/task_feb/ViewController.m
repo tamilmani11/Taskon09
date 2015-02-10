@@ -10,6 +10,8 @@
 
 @interface ViewController ()
 
+
+
 @end
 @implementation ViewController
 @synthesize Downloadlist,session,Arrarypaths,documentsDirectory,Mytableview,SourcePath,NetworkReachability,networkStatus,BookNameArray,BookURLArray;
@@ -41,8 +43,47 @@
 
 }
 
-- (IBAction)Play_Pause:(id)sender
+-(void)Play_Pause:(UIButton *)button event:(UIEvent *)event
 {
+    
+    NSIndexPath* indexPath = [Mytableview indexPathForRowAtPoint:
+                              [[[event touchesForView:button] anyObject]
+                               locationInView:Mytableview]];
+    
+              DownloadModelClass *fdi = [Downloadlist objectAtIndex:indexPath.row];
+    if ([[self ChecktheInternetConnection] isEqualToString:@"YES"])
+    {
+    if (!fdi.isDownloading) {
+            
+            if (fdi.taskIdentifier == -1) {
+                                fdi.downloadTask = [self.session downloadTaskWithURL:[NSURL URLWithString:fdi.downloadSource]];
+                
+                               fdi.taskIdentifier = fdi.downloadTask.taskIdentifier;
+                
+               
+                [fdi.downloadTask resume];
+            }
+            else{
+                
+                [self ResumeDownload:fdi];
+                
+            }
+        }
+        else{
+            
+            [self Pause_or_CancelDownload:fdi];
+        
+        }
+       
+        fdi.isDownloading = !fdi.isDownloading;
+       
+   [Mytableview reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
+    }
+        else
+        {
+            UIAlertView *alert=[[UIAlertView alloc]initWithTitle:@"NetWork Unavailable" message:@"Check Your Internet Connection" delegate:self cancelButtonTitle:@"Ok" otherButtonTitles:nil, nil];
+            [alert show];
+        }
     
 }
 
@@ -86,7 +127,7 @@
     DownloadModelClass *tempobj=[Downloadlist objectAtIndex:indexPath.row];
     cell.Display_name.text=[tempobj fileTitle];
     
-    [cell.Play_Pause addTarget:self action:@selector(Play_Pause:) forControlEvents:UIControlEventTouchUpInside];
+   [cell.Play_Pause addTarget:self action:@selector(Play_Pause:event:) forControlEvents:UIControlEventTouchUpInside];
     if (!tempobj.isDownloading)
     {
         cell.Display_Status.hidden=NO;
@@ -100,31 +141,10 @@
     {
         cell.Display_Status.hidden = YES;
     }
-//     cell.Display_Image.image=tempobj.Tempimage;
+
 return cell;
 }
 
--(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    DownloadModelClass *modelTempobj=[Downloadlist objectAtIndex:indexPath.row];
-    if (modelTempobj.downloadComplete==YES && modelTempobj.downloadProgress==1)
-    {
-        UIAlertView *alert=[[UIAlertView alloc]initWithTitle:@"Warning" message:@"These file have been downloaded!" delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil, nil];
-        [alert show];
-    }
-    else
-    {
-        CustomTableViewCell *cell = (CustomTableViewCell *)[Mytableview cellForRowAtIndexPath:indexPath];
-        NSIndexPath *cellIndexPath = [Mytableview indexPathForCell:cell];
-            int cellIndex = cellIndexPath.row;
-            DownloadModelClass *fdi = [Downloadlist objectAtIndex:cellIndex];
-        //Create the new directory
-          [self createStoreingDirectory:[NSURL URLWithString:fdi.downloadSource]];
-        //start your download
-        [self StartDownload:fdi];
-        [Mytableview reloadRowsAtIndexPaths:@[cellIndexPath] withRowAnimation:UITableViewRowAnimationNone];
-        }
-}
 
 -(void)createStoreingDirectory:(NSURL *)urlname
 {
@@ -140,34 +160,15 @@ return cell;
     }
 }
 
--(void)StartDownload:(DownloadModelClass *) Modelobj
-{
-    if ([[self ChecktheInternetConnection] isEqualToString:@"YES"])
-    {
-        
-    if (!Modelobj.isDownloading)
-    {
-        if (Modelobj.taskIdentifier == -1)
-        {
-            Modelobj.downloadTask = [session downloadTaskWithURL:[NSURL URLWithString:Modelobj.downloadSource]];
-            Modelobj.taskIdentifier = Modelobj.downloadTask.taskIdentifier;
-            [Modelobj.downloadTask resume];
-        }
-    }
-   
-    Modelobj.isDownloading = !Modelobj.isDownloading;
-    }
-    else
-    {
-        UIAlertView *alert=[[UIAlertView alloc]initWithTitle:@"NetWork Unavailable" message:@"Check Your Internet Connection" delegate:self cancelButtonTitle:@"Ok" otherButtonTitles:nil, nil];
-        [alert show];
-    }
 
-}
+
+
+
 -(void)Pause_or_CancelDownload:(DownloadModelClass *) Modelobj
 {
     [Modelobj.downloadTask cancelByProducingResumeData:^(NSData *resumeData) {
-        if (resumeData != nil) {
+        if (resumeData != nil)
+        {
             Modelobj.taskResumeData = [[NSData alloc] initWithData:resumeData];
             
         }
@@ -186,28 +187,38 @@ return cell;
 #pragma mark - NSURLSession Delegate method implementation
 
 -(void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location{
+   
     NSData *data = [NSData dataWithContentsOfURL:location];
     int index = [self getFileDownloadInfoIndexWithTaskIdentifier:downloadTask.taskIdentifier];
+    DownloadModelClass *tempobj=[Downloadlist objectAtIndex:index];
+     [self createStoreingDirectory:[NSURL URLWithString:[tempobj downloadSource]]];
     NSError *error;
     NSFileManager *fileManager = [NSFileManager defaultManager];
     NSString *destinationFilename = downloadTask.originalRequest.URL.lastPathComponent;
     NSString *storethedata=[SourcePath stringByAppendingPathComponent:destinationFilename];
-
     if ([fileManager fileExistsAtPath:storethedata])
     {
         [fileManager removeItemAtPath:storethedata error:nil];
        
     }
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [data writeToFile:storethedata atomically:YES];
-        NSLog(@"File Saved !");
-    });
+ 
+    
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [data writeToFile:storethedata atomically:YES];
+            
+            NSLog(@"File Saved !");
+        });
+    
+       
+    
     if (storethedata) {
         DownloadModelClass *fdi = [Downloadlist objectAtIndex:index];
         fdi.isDownloading = NO;
         fdi.downloadComplete = YES;
         fdi.taskIdentifier = -1;
         fdi.taskResumeData = nil;
+        fdi.DownloadStatusChecking =YES;
+        
        // NSLog(@"URL===%@",location);
         [Mytableview reloadData];
         [[NSOperationQueue mainQueue] addOperationWithBlock:^{
@@ -277,29 +288,6 @@ return cell;
        NSLog(@"NetWork Available");
     }
     return  NetStatus;
-}
--(void)URLSessionDidFinishEventsForBackgroundURLSession:(NSURLSession *)session
-{
-    AppDelegate *appDelegate = [UIApplication sharedApplication].delegate;
-  
-    [self.session getTasksWithCompletionHandler:^(NSArray *dataTasks, NSArray *uploadTasks, NSArray *downloadTasks) {
-        
-        if ([downloadTasks count] == 0) {
-            if (appDelegate.backgroundTransferCompletionHandler != nil) {
-                void(^completionHandler)() = appDelegate.backgroundTransferCompletionHandler;
-                appDelegate.backgroundTransferCompletionHandler = nil;
-                
-                [[NSOperationQueue mainQueue] addOperationWithBlock:^{
-                    
-                    completionHandler();
-                   
-                    UILocalNotification *localNotification = [[UILocalNotification alloc] init];
-                    localNotification.alertBody = @"All files have been downloaded!";
-                    [[UIApplication sharedApplication] presentLocalNotificationNow:localNotification];
-                }];
-            }
-        }
-    }];
 }
 
 @end

@@ -23,6 +23,8 @@
 
 @property (nonatomic) BOOL downloadComplete;
 
+@property (nonatomic) BOOL DownloadStatusChecking;
+
 @property (nonatomic) unsigned long taskIdentifier;
 
 -(id)initWithTitle:(NSString *)title andDownloadSource:(NSString *)source;

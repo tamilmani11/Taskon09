@@ -31,7 +31,9 @@
 -(NSString *) ChecktheInternetConnection;
 -(void)initializeValue;
 -(void)addValuetoModelclass;
-- (IBAction)Play_Pause:(id)sender;
+- (void)Play_Pause:(UIButton*)button event:(UIEvent*)event;
+//-(void)Play_Pause:(UIButton *)Index;
+//- (IBAction)Play_Pause:(id)sender;
 
 @end
 
